@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+
+# Environment files — copy the matching .env.example instead
+.env
+storage/config/redis/redis.conf
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.venv-eval/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Node
+node_modules/
+dist/
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Datasets and generated pipeline artifacts (too large for git)
+pre-processing/data/
+pre-processing/output/
+pre-processing/*.zip
+pre-processing/eval_data/results/
+
+# Runtime state of the Docker stacks
+storage/data/
+storage/logs/
+monitor/data/
+monitor/logs/

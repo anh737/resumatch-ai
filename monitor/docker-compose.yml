@@ -1,0 +1,110 @@
+# ==============================================================================
+# Monitor stack (Langfuse observability)
+#
+# Folder layout
+#   config/<service>/   -> per-service configuration & env files
+#   data/<service>/     -> persistent volumes
+#   logs/<service>/     -> log output
+# All credentials live in config/<service>/.env.
+#
+# Network
+#   This stack does NOT create its own network. It joins `storage-net`, owned
+#   by ../storage, so postgres / redis / minio resolve by name exactly as they
+#   did when Langfuse lived in that compose file.
+#
+# Start order
+#   1. cd ../storage && docker compose up -d   (creates storage-net)
+#   2. cd ../monitor && docker compose up -d
+#   `depends_on` cannot reference services in another compose project, so the
+#   services below rely on restart policies to wait for the storage stack.
+# ==============================================================================
+
+services:
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: langfuse-clickhouse
+    restart: unless-stopped
+    env_file:
+      - ./config/clickhouse/.env
+    volumes:
+      # ClickHouse phải dùng named volume (ext4 trong VM): bind mount xuống ổ
+      # Windows (9p/drvfs) không hỗ trợ rename khi file đang mở -> migration fail.
+      - clickhouse_data:/var/lib/clickhouse
+      - ./logs/clickhouse:/var/log/clickhouse-server
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    # minio/minio ships no `mc` binary -- it must be the client image, or every
+    # command here silently fails ("mc: command not found") and `exit 0` hides it.
+    image: minio/mc:latest
+    container_name: langfuse-minio-init
+    # minio lives in ../storage, so there is no depends_on to wait on. If minio
+    # is not up yet, `mc alias set` fails, the container exits non-zero and
+    # Docker retries it until the bucket is created (exit 0).
+    restart: on-failure
+    # `set -e` + no trailing `exit 0`: a failed bucket creation must fail the step,
+    # otherwise langfuse-worker starts against a bucket that does not exist.
+    entrypoint: >
+      /bin/sh -c "
+      set -e;
+      mc alias set myminio http://minio:9000 '${INFRA_USER:-admin}' '${INFRA_PASSWORD:-changeme}';
+      mc mb myminio/langfuse --ignore-existing;
+      mc ls myminio/langfuse;
+      echo 'MinIO bucket langfuse ready';
+      "
+
+  langfuse-worker:
+    image: ghcr.io/langfuse/langfuse-worker:3
+    container_name: langfuse-worker
+    restart: unless-stopped
+    depends_on:
+      clickhouse:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+    env_file:
+      - ./config/langfuse/.env
+    environment:
+      NEXTAUTH_URL: http://localhost:3031
+
+  langfuse-web:
+    image: ghcr.io/langfuse/langfuse:3
+    container_name: langfuse-web
+    restart: unless-stopped
+    ports:
+      - "3031:3000"
+    env_file:
+      - ./config/langfuse/.env
+    environment:
+      NEXTAUTH_URL: http://localhost:3031
+      NEXTAUTH_SECRET: my_nextauth_secret
+      NODE_ENV: production
+    depends_on:
+      langfuse-worker:
+        condition: service_started
+
+# ------------------------------------------------------------------------------
+# Network / volumes
+# ------------------------------------------------------------------------------
+networks:
+  # Use the storage stack's network as this project's default network so every
+  # service above lands on it without per-service `networks:` entries.
+  default:
+    name: storage-net
+    external: true
+
+volumes:
+  clickhouse_data:
+    # Pin the name the old storage stack gave this volume (`storage_clickhouse_data`)
+    # so existing Langfuse traces survive the move. Drop this line to start fresh
+    # (Compose would then create `monitor_clickhouse_data`).
+    name: storage_clickhouse_data

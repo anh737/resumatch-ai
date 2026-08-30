@@ -1,0 +1,22 @@
+# Evaluation pipeline deps (evaluation_system.ipynb + evaluation/ package).
+# Install into pre-processing/.venv-eval and select that interpreter as the
+# notebook kernel.
+openai>=1.40
+qdrant-client>=1.16,<1.18
+python-dotenv
+pandas
+numpy
+matplotlib
+ragas>=0.2.15
+datasets
+# ragas 0.4.x targets the langchain 0.3 line; the 1.x line breaks its imports
+# (langchain_community.chat_models.vertexai was removed there).
+langchain-core>=0.3,<1
+langchain-community>=0.3,<0.4
+langchain-openai>=0.2,<0.4
+langchain>=0.3,<1
+pytest
+ipykernel
+nbformat
+nbclient
+jupyter_client

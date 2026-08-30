@@ -1,0 +1,143 @@
+# ==============================================================================
+# Storage stack (messaging + datastores)
+#
+# Folder layout
+#   config/<service>/   -> per-service configuration & env files
+#   data/<service>/     -> persistent volumes
+#   logs/<service>/     -> log output
+# All credentials live in config/<service>/.env.
+#
+# Network
+#   Every service here joins a fixed-name network, `storage-net`. Other stacks
+#   (e.g. ../monitor for Langfuse) attach to it as an external network so they
+#   can reach postgres / redis / minio / kafka by service name.
+#   Start this stack first: it owns the network.
+# ==============================================================================
+
+services:
+
+# ------------------------------------------------------------------------------
+# Messaging
+# ------------------------------------------------------------------------------
+  zookeeper:
+    user: "0:0"
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: zookeeper
+    restart: always
+    env_file:
+      - ./config/zookeeper/.env
+    ports:
+      - "2181:2181"
+    volumes:
+      # Both paths are hardcoded in the image's zookeeper.properties.template.
+      # The transaction log is DATA, not log output: if it is left on the
+      # container's writable layer, any container recreate loses Kafka's cluster
+      # id and the broker then dies with InconsistentClusterIdException.
+      - ./data/zookeeper:/var/lib/zookeeper/data
+      - ./data/zookeeper-log:/var/lib/zookeeper/log
+
+  kafka:
+    user: "0:0"
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka
+    restart: always
+    depends_on:
+      - zookeeper
+    env_file:
+      - ./config/kafka/.env
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    volumes:
+      - ./data/kafka:/var/lib/kafka/data
+      - ./logs/kafka:/var/log/kafka
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    restart: always
+    depends_on:
+      - kafka
+    ports:
+      - "3310:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: chatbot
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+
+# ------------------------------------------------------------------------------
+# Datastores
+# ------------------------------------------------------------------------------
+  qdrant:
+    image: qdrant/qdrant:v1.16.3
+    container_name: ai-agent-qdrant
+    restart: always
+    env_file:
+      - ./config/qdrant/.env
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - ./data/qdrant:/qdrant/storage
+      - ./logs/qdrant:/qdrant/logs
+
+  minio:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    container_name: minio
+    restart: always
+    env_file:
+      - ./config/minio/.env
+    command: server --console-address ":9001" /data
+    ports:
+      # Host 9000/9001 are occupied locally; remapped. In-network stays minio:9000.
+      - "9010:9000"   # API
+      - "9011:9001"   # Console
+    volumes:
+      - ./data/minio:/data
+      - ./logs/minio:/var/log/minio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.2.5
+    container_name: redis
+    restart: always
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/redis:/data
+      - ./logs/redis:/var/log/redis
+      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf
+
+  postgres:
+    image: postgres:14.2
+    container_name: postgres
+    restart: unless-stopped
+    env_file:
+      - ./config/postgresql/.env
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgresql:/var/lib/postgresql/data
+      # Creates the `langfuse` database (used by ../monitor) on a fresh PGDATA;
+      # POSTGRES_DB won't.
+      - ./config/postgresql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+# ------------------------------------------------------------------------------
+# Network
+# ------------------------------------------------------------------------------
+networks:
+  # Give the project's default network a fixed name so it is not prefixed with
+  # the project name (`storage_default`). All services above join it
+  # automatically; ../monitor attaches to it with `external: true`.
+  default:
+    name: storage-net

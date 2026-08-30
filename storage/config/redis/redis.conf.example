@@ -1,0 +1,2 @@
+requirepass changeme
+appendonly yes

@@ -1,0 +1,67 @@
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Container DNS (NGINX_LOCAL_RESOLVERS is filled from /etc/resolv.conf by the
+    # official image's entrypoint). Re-resolve every 10s so the upstream may
+    # start, restart or move after nginx has booted.
+    resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=off;
+
+    # Single-page app: unknown paths fall back to index.html.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # WebSocket answer stream -> ai-agents. `/api/ws/chat/x` becomes `/ws/chat/x`
+    # upstream. Longest-prefix match wins, so this beats the generic /api/ block.
+    location /api/ws/ {
+        set $ws_upstream ${WS_UPSTREAM};
+        rewrite ^/api/(.*)$ /$1 break;
+        proxy_pass $ws_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # Chat API -> bot-agent. `/api/chat` becomes `/chat` upstream.
+    # proxy_pass with a variable makes nginx resolve the host at request time
+    # instead of at startup, so the front-end still boots when bot-agent is down.
+    # Buffering is off so streamed tokens reach the browser as they arrive.
+    location /api/ {
+        set $api_upstream ${API_UPSTREAM};
+        rewrite ^/api/(.*)$ /$1 break;
+        proxy_pass $api_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        error_page 502 503 504 = @api_unavailable;
+    }
+
+    # Backend down / not deployed: answer with JSON the UI can display.
+    location @api_unavailable {
+        default_type application/json;
+        return 503 '{"detail":"The chat service (bot-agent) is not reachable. Start it and try again."}';
+    }
+
+    # Hashed build assets are safe to cache for a long time.
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}

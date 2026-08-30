@@ -1,0 +1,100 @@
+# ==============================================================================
+# Application services
+#
+# Network
+#   Joins `storage-net`, owned by ../storage, so services here reach postgres /
+#   redis / kafka / qdrant / minio (and the Langfuse stack in ../monitor) by
+#   service name. Start ../storage first.
+#
+# Build
+#   docker compose build            # build all images
+#   docker compose up -d --build    # build + start
+# ==============================================================================
+
+services:
+
+  front-end:
+    build:
+      context: ./front-end
+      args:
+        # Base URL the browser uses for the chat API; nginx proxies it.
+        VITE_API_BASE_URL: /api
+    container_name: front-end
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    environment:
+      # nginx strips the /api prefix and forwards /api/* to bot-agent (chat
+      # submit + history) and /api/ws/* to ai-agents (WebSocket answer stream).
+      API_UPSTREAM: http://bot-agent:8001
+      WS_UPSTREAM: http://ai-agents:8000
+
+  # LLM agent: consumes chat.requests from Kafka, streams answers over
+  # WebSocket, publishes chat.responses. Needs OPENAI_API_KEY (and optionally
+  # the Langfuse keys) from ai-agents/.env:  cp ai-agents/.env.example ai-agents/.env
+  ai-agents:
+    build: ./ai-agents
+    container_name: ai-agents
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: ./ai-agents/.env
+        required: false
+    environment:
+      # In-network addresses override the localhost defaults from .env
+      # (environment beats env_file in compose).
+      DEBUG: "false"
+      QDRANT_URL: http://qdrant:6333
+      REDIS_URL: redis://:${INFRA_PASSWORD_URLENC:-changeme}@redis:6379/0
+      POSTGRES_URL: postgresql://${INFRA_USER:-admin}:${INFRA_PASSWORD_URLENC:-changeme}@postgres:5432/postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ENDPOINT: minio:9000
+      LANGFUSE_HOST: http://langfuse-web:3000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+
+  # Chat entry point + history: persists turns in PostgreSQL, bridges the
+  # front-end to ai-agents over Kafka (chat.requests / chat.responses).
+  bot-agent:
+    build: ./bot-agent
+    container_name: bot-agent
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    env_file:
+      - path: ./bot-agent/.env
+        required: false
+    environment:
+      DEBUG: "false"
+      POSTGRES_URL: postgresql://${INFRA_USER:-admin}:${INFRA_PASSWORD_URLENC:-changeme}@postgres:5432/postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+
+  # Online ingestion skeleton (health endpoint only for now); will consume
+  # resume.uploaded from Kafka and upsert embeddings into Qdrant.
+  ai-embeddings:
+    build: ./ai-embeddings
+    container_name: ai-embeddings
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      DEBUG: "false"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+
+networks:
+  default:
+    name: storage-net
+    external: true

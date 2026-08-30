@@ -1,0 +1,92 @@
+[
+  {
+    "question": "What database management systems and cloud platforms does the candidate have hands-on experience with?",
+    "ground_truth": "The candidate has hands-on experience with Oracle databases (10g, 11g, 12c), MySQL (5.6, 5.7), SQL Server (2008, 2012), and AWS infrastructure including RDS, EC2, S3, and related services.",
+    "source_id": 29051656,
+    "kind": "cv"
+  },
+  {
+    "question": "What leadership roles has the candidate held in their IT career?",
+    "ground_truth": "The candidate has held leadership roles including Director of Information Technology, Team Leader, Chief Information Officer, and Director of Applications Development.",
+    "source_id": 13385306,
+    "kind": "cv"
+  },
+  {
+    "question": "What certifications does the candidate hold related to video surveillance?",
+    "ground_truth": "The candidate holds the Milestone Advanced Certified Partner certification for video surveillance.",
+    "source_id": 10553553,
+    "kind": "cv"
+  },
+  {
+    "question": "What certifications does the candidate hold related to information technology and legal services?",
+    "ground_truth": "The candidate holds a Microsoft Certified Systems Engineer certification obtained in February 2002 and is a Maryland Notary Public with a commission expiring on August 26, 2018.",
+    "source_id": 37764298,
+    "kind": "cv"
+  },
+  {
+    "question": "What certifications does the candidate hold related to Oracle and information security?",
+    "ground_truth": "The candidate holds Oracle Certified Professional (OCP) certifications for versions 8.0, 8i, 9i, 10g, and 11g, as well as Certified Information Systems Security Professional (CISSP) and Certified Information Security Manager (CISM) certifications.",
+    "source_id": 18187364,
+    "kind": "cv"
+  },
+  {
+    "question": "What laboratory techniques and instruments is the candidate experienced with according to their resume?",
+    "ground_truth": "The candidate is experienced with microbial testing, endotoxin-LAL test, nanoparticle size and charge analysis using Malvern Nano ZS 90, protein extractions, HPLC handling, chromatography techniques, PCR, ELISA, FT-IR, GC, PAGE, UV-VIS spectrophotometer, capillary electrophoresis, UPLC, dissolution apparatus, pH meter, analytical balances, and cytogenetics among others.",
+    "source_id": 17987433,
+    "kind": "cv"
+  },
+  {
+    "question": "What certifications does the candidate hold related to network engineering and security?",
+    "ground_truth": "The candidate holds several certifications including Brocade Certified Network Engineer (BCNE), Brocade Certified Layer 4-7 Engineer (BCLE), Brocade Certified Network Professional (BCNP), Security+ from COMPTIA, and Juniper Networks Certified Internet Associate (Firewall/VPN - SSL).",
+    "source_id": 17641670,
+    "kind": "cv"
+  },
+  {
+    "question": "What technical skills does the candidate have related to network administration and server management?",
+    "ground_truth": "The candidate has technical skills in Active Directory, DHCP, DNS, firewall, LAN, Microsoft Exchange Server, Network Administration, Microsoft SQL Server, SAN, Servers, VPN, Windows Server, and Windows 2000 Server.",
+    "source_id": 13836471,
+    "kind": "cv"
+  },
+  {
+    "question": "What programming languages and frameworks does the candidate have experience with?",
+    "ground_truth": "The candidate has experience with ASP.NET (versions 2.0, 3.5, 4.0), MVC (including MVC 4), ColdFusion, C#, and SharePoint 2010.",
+    "source_id": 12763627,
+    "kind": "cv"
+  },
+  {
+    "question": "What certifications does the candidate hold related to IT and networking?",
+    "ground_truth": "The candidate holds CompTIA A+, CompTIA Network+, Microsoft MCP (70-210 and 70-215), and was previously certified as Cisco CCNA.",
+    "source_id": 31243710,
+    "kind": "cv"
+  },
+  {
+    "question": "What certifications does the candidate hold relevant to project management or IT?",
+    "ground_truth": "The candidate holds the Test and Evaluation Manager Level II certification from a government training and certification program.",
+    "source_id": 89413122,
+    "kind": "cv"
+  },
+  {
+    "question": "What certifications does the candidate hold related to IT and network management?",
+    "ground_truth": "The candidate holds certifications including MCSE (Microsoft Certified Systems Engineer), LDCCA Certified Installer for Fiber Optic and Category 5/5E, Certified Construction Quality Management for Contractors by U.S. Army Core of Engineers, Wireless Network Auditing Training System, and Forensics, Investigation & Response Training.",
+    "source_id": 26801767,
+    "kind": "cv"
+  },
+  {
+    "question": "What technical skills does the candidate have related to information technology and software?",
+    "ground_truth": "The candidate has technical skills in Basic Programming, IBM Software, Lotus 2.1, Macros, MS-DOS, Network, networking, Novell Netware, Novell Netware 4.11, Programming, troubleshooting, and help desk support.",
+    "source_id": 12334140,
+    "kind": "cv"
+  },
+  {
+    "question": "What operating systems and server platforms does the candidate have technical skills in?",
+    "ground_truth": "The candidate has technical skills in Microsoft Windows, Microsoft Windows Server, Mac OS X, Mac OS X Server, CentOS, and SUSE Enterprise Server.",
+    "source_id": 27770859,
+    "kind": "cv"
+  },
+  {
+    "question": "What industries does the candidate have experience in, and what are some of their key areas of expertise?",
+    "ground_truth": "The candidate has 20 years of experience in diverse industries, including healthcare and marketing. Their key areas of expertise include team leadership, technical architecture, training and development, disaster recovery planning, and information protection analysis.",
+    "source_id": 23864648,
+    "kind": "cv"
+  }
+]

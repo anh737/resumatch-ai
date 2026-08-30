@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-dotenv
+openai
+qdrant-client>=1.16,<1.18   # server is qdrant v1.16.3; keep within one minor
+aiokafka>=0.14
+langfuse>=4

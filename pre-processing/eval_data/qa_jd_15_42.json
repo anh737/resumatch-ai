@@ -1,0 +1,92 @@
+[
+  {
+    "question": "What programming languages and tools are required for the Senior Data Scientist (InsurTech) role?",
+    "ground_truth": "The role requires strong programming skills in Python, PySpark, SQL, and reproducible data workflows.",
+    "source_id": "linkedin_4424569183",
+    "kind": "jd"
+  },
+  {
+    "question": "What are the mandatory technical skills required for the Information Technology Consultant (Test Automation) contract role?",
+    "ground_truth": "The mandatory technical skills required include 5+ years of software testing experience, strong hands-on experience in Java, Selenium WebDriver, TestNG/JUnit, Maven/Gradle, API Testing (Postman/Rest Assured), SQL Database Testing, and Git version control.",
+    "source_id": "indeed_in-35f4bd08b3a4f400",
+    "kind": "jd"
+  },
+  {
+    "question": "What Azure services and programming languages are required for the Azure Data Engineer role in banking?",
+    "ground_truth": "The role requires strong expertise in Azure services including Azure Data Factory, Azure Synapse Analytics, Azure Databricks, Azure Data Lake Storage, and Azure SQL Database. Proficiency in SQL, Python, and PySpark is also required for data engineering tasks.",
+    "source_id": "indeed_in-0de2ea6067aca11e",
+    "kind": "jd"
+  },
+  {
+    "question": "What are the main responsibilities of a Quantitative Researcher in this role?",
+    "ground_truth": "The main responsibilities include extracting predictive signals from financial data using statistical and machine learning methods, assisting software developers in translating research into production software, optimizing order execution and risk management, creating robust solutions for trading problems, applying mathematical modeling to enhance trading strategies, and automating human-decision based trading strategies by prototyping algorithmic trades.",
+    "source_id": "linkedin_4439798194",
+    "kind": "jd"
+  },
+  {
+    "question": "What qualifications and skills are required for the Senior Assistant Manager, Data and Analytics role?",
+    "ground_truth": "The role requires a PhD in Social Sciences, Science, Technology, Engineering, Mathematics or a related discipline. Candidates should have strong knowledge of applied statistics, empirical research methods, and quantitative analysis, experience handling complex datasets, good coding skills with familiarity in Python and R, ability to develop analytical models and communicate findings clearly, and be resourceful, resilient, collaborative with good communication skills. Data visualisation skills are an added advantage.",
+    "source_id": "indeed_in-8ebd21a73a5a36a8",
+    "kind": "jd"
+  },
+  {
+    "question": "What technical skills are required for the Intern, Data Analytics, Talent Attraction role?",
+    "ground_truth": "The role requires proficiency in SQL and Google Apps Script for cleaning datasets and building dashboards, as well as comfort with Google Suite applications like Sheets, Docs, and Slides.",
+    "source_id": "indeed_in-7e657499e759787a",
+    "kind": "jd"
+  },
+  {
+    "question": "What cloud platforms and services will the Cloud Engineer / Architect work with in this role?",
+    "ground_truth": "The Cloud Engineer / Architect will work with AWS, Azure, and GCP cloud platforms, including services such as AWS ECS Fargate, Lambda, RDS, OpenSearch Serverless; Azure Container Apps, Functions, Azure Database, AI Search; and GCP Cloud Run, Cloud Functions, Cloud SQL, Vertex AI Search.",
+    "source_id": "indeed_in-7378372c00854cdc",
+    "kind": "jd"
+  },
+  {
+    "question": "What cloud platforms and technologies should a Data Engineer be experienced with for this role?",
+    "ground_truth": "A Data Engineer should have experience with cloud platforms such as AWS, Azure, or GCP, and technologies including Databricks, Apache Spark/PySpark, Amazon Redshift, AWS Glue, and Amazon S3 or equivalent cloud data services.",
+    "source_id": "indeed_in-43a0738c07dc447e",
+    "kind": "jd"
+  },
+  {
+    "question": "What programming languages and AI tools should a candidate be proficient in for the Software Engineer (AI & Data Analytics Automation) role?",
+    "ground_truth": "Candidates should have strong programming skills preferably in Python, with experience in scripting, automation, data processing, and practical tool development; knowledge of C++ is a plus. They should also have practical working knowledge of AI tools and concepts, including prompt engineering, LLM-based workflows, AI-assisted automation, AI agents, and retrieval-augmented generation systems.",
+    "source_id": "linkedin_4439132691",
+    "kind": "jd"
+  },
+  {
+    "question": "What are the key technical skills and experience required for the Market Data & Trading Systems Engineer role?",
+    "ground_truth": "The role requires 3+ years of experience in market data support/engineering or data infrastructure, experience with market-data platforms like Refinitiv RTDS (preferred), Bloomberg, direct feed providers, cloud technologies such as AWS or GCP, basic networking/connectivity skills (Multicast, routing, TCP/IP), proficiency with OS and network tuning and scripting on Windows/Linux (Python, Perl, bash, or TCL), and a degree in computer science, engineering, mathematics or equivalent.",
+    "source_id": "indeed_in-33871389ce7df74c",
+    "kind": "jd"
+  },
+  {
+    "question": "What are the key responsibilities of the Senior Data Scientist, Marketing AI role at Singtel?",
+    "ground_truth": "The Senior Data Scientist is responsible for leading AI/ML initiatives supporting Singtel's products and services by collaborating with Marketing, Product, and external partners. They define problem statements and architect end-to-end solutions, including the use of Generative AI and LLMs, ensuring alignment with strategic objectives and regulatory requirements. Additionally, they design, build, and productionize analytical models for intelligent decision-making in customer journeys, integrating these models into decision engines while promoting best practices in model governance, scalability, explainability, and continuous improvement.",
+    "source_id": "linkedin_4432533344",
+    "kind": "jd"
+  },
+  {
+    "question": "What are the key technical skills and experience required for the Research Scientist / Research Engineer role?",
+    "ground_truth": "The role requires a PhD or equivalent research experience in computer science, 4-5+ years of industry experience, deep expertise in model efficiency, real time alignment, or algorithmic optimization, strong programming skills in Python, experience with deep learning frameworks like PyTorch, JAX, or TensorFlow, knowledge of model optimization techniques such as RLHF and finetuning, and experience in an industry lab with computing at scale.",
+    "source_id": "linkedin_4439657550",
+    "kind": "jd"
+  },
+  {
+    "question": "What are the main responsibilities of the Senior Data Scientist in relation to business metrics and analytics frameworks?",
+    "ground_truth": "The Senior Data Scientist is responsible for owning the design of core business metrics and the analytics framework used across the claims data analytics product, translating business logic into clear metric definitions, partnering with engineering to maintain the semantic layer, designing the analytics narrative for dashboards, and collaborating with product, clinical teams, and AI Engineers to ensure the analytics reflect real business questions and support evaluation of analytics agents.",
+    "source_id": "linkedin_4450468887",
+    "kind": "jd"
+  },
+  {
+    "question": "What programming languages and tools should a Quantitative Developer be proficient in for this role?",
+    "ground_truth": "A Quantitative Developer should have very good knowledge of Python and statistical libraries like Numpy, Pandas, Polars, experience in C++ development, and experience with scripting languages such as Bash.",
+    "source_id": "linkedin_4387259686",
+    "kind": "jd"
+  },
+  {
+    "question": "What are the educational and experience requirements for the Principal / Senior Engineer, Data Analytics & Management role in Technical Operations Management?",
+    "ground_truth": "The role requires a Bachelor's, Master's, or PhD in Electrical Engineering, Electronics Engineering, Computer Science, Data Science, Statistics, or related fields. Additionally, a minimum of 5+ years (Senior Engineer) or 8+ years (Principal Engineer) of semiconductor industry experience in data analytics, analytics platforms, and data architecture is required.",
+    "source_id": "indeed_in-2bfa858873b3a7d7",
+    "kind": "jd"
+  }
+]
