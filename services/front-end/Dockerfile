@@ -6,7 +6,9 @@ RUN npm ci
 COPY . .
 # Baked into the bundle at build time (browser-side constant).
 ARG VITE_API_BASE_URL=/api
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ARG VITE_ADMIN_PORTAL_URL=http://localhost:3001
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
+    VITE_ADMIN_PORTAL_URL=$VITE_ADMIN_PORTAL_URL
 RUN npm run build
 
 # ---- serve ------------------------------------------------------------------

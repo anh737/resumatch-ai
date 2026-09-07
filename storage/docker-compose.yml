@@ -93,7 +93,13 @@ services:
       - "9010:9000"   # API
       - "9011:9001"   # Console
     volumes:
-      - ./data/minio:/data
+      # Named volume, NOT a bind mount: on a macOS bind mount (Docker Desktop
+      # VirtioFS; here additionally inside iCloud Drive) MinIO's rename of the
+      # temp directory of any object >= 128 KiB fails with "resource deadlock
+      # avoided", so every PutObject of a real CV/JD file returned 500. Same
+      # reason ClickHouse in ../monitor uses a named volume. The old ./data/minio
+      # folder was copied into the volume on 2026-09-06 and is no longer used.
+      - minio_data:/data
       - ./logs/minio:/var/log/minio
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
@@ -141,3 +147,7 @@ networks:
   # automatically; ../monitor attaches to it with `external: true`.
   default:
     name: storage-net
+
+volumes:
+  # Lives inside the Docker VM as `storage_minio_data` (see the minio service).
+  minio_data:

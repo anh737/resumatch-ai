@@ -273,6 +273,13 @@ button {
 .nav-item--active {
   background: var(--bg-hover);
 }
+.nav-item--link {
+  text-decoration: none;
+}
+.nav-item__ext {
+  margin-left: auto;
+  color: var(--text-tertiary);
+}
 
 .sidebar__search {
   display: flex;

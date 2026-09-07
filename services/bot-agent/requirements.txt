@@ -5,3 +5,6 @@ pydantic-settings
 python-dotenv
 asyncpg>=0.29
 aiokafka>=0.14
+minio>=7
+httpx                # Langfuse public-API proxy for the admin page
+python-multipart     # multipart parsing for /admin/uploads

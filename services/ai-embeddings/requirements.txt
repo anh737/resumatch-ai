@@ -3,3 +3,11 @@ uvicorn[standard]
 pydantic
 pydantic-settings
 python-dotenv
+openai
+qdrant-client>=1.16,<1.18   # server is qdrant v1.16.3; keep within one minor
+aiokafka>=0.14
+langfuse>=4
+minio>=7
+tiktoken                    # tokenizer of text-embedding-3-* (truncation)
+pypdf>=4
+python-docx>=1

@@ -43,6 +43,11 @@ RESUME_ID_KEY = "id"
 JOB_ID_KEY = "id"
 JOB_TYPE_CHUNK = "chunk"   # semantic chunks of the ad
 JOB_TYPE_FIELD = "field"   # one section each; also carry the full job record
+# Upload metadata written by ai-embeddings for documents ingested through the
+# admin portal (absent on the offline corpus): source = {filename, stem,
+# upload_id, bucket, key, content_type, uploaded_at, ingested_at}.
+SOURCE_FILENAME_KEY = "source.filename"
+SOURCE_STEM_KEY = "source.stem"
 
 # Value accepted by build_filter(): scalar -> match, list -> match any,
 # {"gte"/"gt"/"lte"/"lt": n} -> range, None -> ignored.
@@ -155,6 +160,11 @@ def _as_filter(spec: FilterSpec) -> models.Filter | None:
     if spec is None or isinstance(spec, models.Filter):
         return spec
     return build_filter(spec)
+
+
+def has_field_filter(key: str) -> models.Filter:
+    """Points whose payload has a non-empty ``key`` — e.g. only uploaded documents."""
+    return models.Filter(must_not=[models.IsEmptyCondition(is_empty=models.PayloadField(key=key))])
 
 
 # ---------------------------------------------------------------------------
@@ -292,6 +302,7 @@ async def search_resumes(
     category: str | Sequence[str] | None = None,
     section: str | Sequence[str] | None = None,
     resume_ids: Sequence[int] | None = None,
+    filename: str | None = None,
     score_threshold: float | None = None,
     extra_filters: Mapping[str, FilterValue] | None = None,
 ) -> list[SearchGroup]:
@@ -299,9 +310,15 @@ async def search_resumes(
 
     ``group.key`` is the resume id, ``group.hits`` its best-matching sections
     (``payload["field"]`` says which). ``section`` restricts which resume
-    sections are searched (payload ``field``), ``category`` the resume category.
+    sections are searched (payload ``field``), ``category`` the resume category,
+    ``filename`` the exact upload file name (``source.filename``).
     """
-    filters = {"category": category, "field": section, RESUME_ID_KEY: list(resume_ids) if resume_ids else None}
+    filters = {
+        "category": category,
+        "field": section,
+        RESUME_ID_KEY: list(resume_ids) if resume_ids else None,
+        SOURCE_FILENAME_KEY: filename,
+    }
     if extra_filters:
         filters.update(extra_filters)
     return await search_grouped(
@@ -324,6 +341,7 @@ async def search_jobs(
     employment_type: str | Sequence[str] | None = None,
     point_type: str | Sequence[str] | None = JOB_TYPE_CHUNK,
     job_ids: Sequence[str] | None = None,
+    filename: str | None = None,
     score_threshold: float | None = None,
     extra_filters: Mapping[str, FilterValue] | None = None,
 ) -> list[SearchGroup]:
@@ -332,12 +350,14 @@ async def search_jobs(
     ``group.key`` is the job id, ``group.hits`` its best-matching points.
     ``point_type`` selects the point kind: :data:`JOB_TYPE_CHUNK` (default),
     :data:`JOB_TYPE_FIELD` (full record in the payload) or ``None`` for both.
+    ``filename`` restricts to the job uploaded with that exact file name.
     """
     filters = {
         "company": company,
         "employment_type": employment_type,
         "type": point_type,
         JOB_ID_KEY: list(job_ids) if job_ids else None,
+        SOURCE_FILENAME_KEY: filename,
     }
     if extra_filters:
         filters.update(extra_filters)
@@ -361,3 +381,42 @@ async def get_job(job_id: str) -> list[Point]:
     """All stored points of one job, chunks in order (empty list if unknown)."""
     points = await scroll(settings.QDRANT_JD_COLLECTION, filters={JOB_ID_KEY: job_id}, limit=100)
     return sorted(points, key=lambda p: (p.payload.get("type") != JOB_TYPE_CHUNK, p.payload.get("chunk_index", 0)))
+
+
+# ---------------------------------------------------------------------------
+# Uploaded documents (points carrying a `source` block)
+# ---------------------------------------------------------------------------
+async def find_resumes_by_source(*, filename: str | None = None, stem: str | None = None, limit: int = 50) -> list[Point]:
+    """Sections of the resume uploaded as ``filename`` (exact) or with lookup key ``stem``."""
+    if not filename and not stem:
+        return []
+    return await scroll(settings.QDRANT_CV_COLLECTION, filters={SOURCE_FILENAME_KEY: filename, SOURCE_STEM_KEY: stem}, limit=limit)
+
+
+async def find_jobs_by_source(*, filename: str | None = None, stem: str | None = None, limit: int = 100) -> list[Point]:
+    """Points of the job posting uploaded as ``filename`` (exact) or with lookup key ``stem``."""
+    if not filename and not stem:
+        return []
+    return await scroll(settings.QDRANT_JD_COLLECTION, filters={SOURCE_FILENAME_KEY: filename, SOURCE_STEM_KEY: stem}, limit=limit)
+
+
+async def list_uploaded_resumes(*, max_points: int = 2000) -> list[Point]:
+    """Every point of every resume that was uploaded through the admin portal (payload: id, category, source)."""
+    return await scroll(
+        settings.QDRANT_CV_COLLECTION,
+        filters=has_field_filter(SOURCE_FILENAME_KEY),
+        limit=200,
+        with_payload=["id", "category", "source"],
+        max_points=max_points,
+    )
+
+
+async def list_uploaded_jobs(*, max_points: int = 4000) -> list[Point]:
+    """Every point of every job posting uploaded through the admin portal (payload: id, job_title, company, source)."""
+    return await scroll(
+        settings.QDRANT_JD_COLLECTION,
+        filters=has_field_filter(SOURCE_FILENAME_KEY),
+        limit=200,
+        with_payload=["id", "job_title", "company", "source"],
+        max_points=max_points,
+    )

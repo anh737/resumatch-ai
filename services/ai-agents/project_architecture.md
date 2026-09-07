@@ -278,10 +278,12 @@ stateDiagram-v2
 
 | Tool | Backed by | Description |
 |---|---|---|
-| `retrieval_cv(query, top_k, section?, category?)` | `core.llm.embed_text` + `qdrant.search_resumes` | Semantic search over resumes; one entry per candidate with its best sections. |
-| `retrieval_jd(query, top_k, company?, employment_type?)` | `core.llm.embed_text` + `qdrant.search_jobs` | Semantic search over job descriptions; structured record included when a `type=field` point matched. |
+| `retrieval_cv(query, top_k, section?, category?, filename?)` | `core.llm.embed_text` + `qdrant.search_resumes` | Semantic search over resumes; one entry per candidate with its best sections. |
+| `retrieval_jd(query, top_k, company?, employment_type?, filename?)` | `core.llm.embed_text` + `qdrant.search_jobs` | Semantic search over job descriptions; structured record included when a `type=field` point matched. |
+| `get_resume(resume_id? \| filename?)` | `qdrant.get_resume` / `find_resumes_by_source` / `list_uploaded_resumes` | One resume in full by id or by the file name it was uploaded with (exact → stem → fuzzy). `found: false` returns the uploaded files instead, so the answer never substitutes a look-alike. |
+| `get_job(job_id? \| filename?)` | `qdrant.get_job` / `find_jobs_by_source` / `list_uploaded_jobs` | Same for job descriptions. |
 | `finish_tool_calls` | — | Terminator (always registered). |
-| planned: `get_resume`, `score_candidate` | Postgres / MinIO / LLM | Full record + fit scoring. |
+| planned: `score_candidate` | LLM | Structured fit scoring. |
 
 Prompts live in `prompt/` (`system.md` for the summary stage,
 `tool_system.md` for the tool loop), loaded via `prompt.load_prompt()`, never
@@ -382,21 +384,21 @@ in-network names from §2 (e.g. `QDRANT_URL=http://qdrant:6333`,
 | OpenAI client (`core/llm.py`) | ✅ done |
 | Chat pipeline per §4 (Kafka in, WebSocket out) | ✅ done — `handler/chat.py`, `handler/ws.py`, lifespan wiring in `main.py` |
 | Agent runtime (`core/agent.py`) | ✅ done — two-stage tool loop + streamed summary on the plain OpenAI SDK |
-| Tools `retrieval_cv` / `retrieval_jd` (`core/tools.py`) | ✅ done; ⬜ `get_resume`, `score_candidate` |
+| Tools `retrieval_cv` / `retrieval_jd` / `get_resume` / `get_job` (`core/tools.py`) | ✅ done; ⬜ `score_candidate` |
 | Prompts (`prompt/system.md`, `prompt/tool_system.md`) | ✅ done |
 | Langfuse instrumentation | ✅ done — one trace per turn (session = conversation id), generation per LLM call, retriever span per tool call |
 | bot-agent (chat history, PostgreSQL, Kafka bridge) | ✅ done — see `services/bot-agent/` |
 | `services/` adapters | ✅ `vector_store/qdrant`, `message_broker/kafka`, `observability/langfuse`; ⬜ `cache/redis`, `object_store/minio` (`database/postgres` lives in bot-agent) |
 | Dockerfiles + compose entries (`ai-agents`, `bot-agent`, `ai-embeddings`) | ✅ done — python:3.11-slim images, healthchecks, in-network env overrides in `services/docker-compose.yml` |
-| Kafka consumer for online ingestion (resume upload) | ⬜ later — `ai-embeddings` skeleton (health only) is in place for it |
+| Kafka consumer for online ingestion (resume upload) | ✅ done — `ai-embeddings` consumes `resume.uploaded` / `job.uploaded` (MinIO → extract → structure → embed → Qdrant upsert), reports on `resume.processed` / `job.processed`; bot-agent exposes `/admin/uploads` + `/admin/traces` for the admin portal (`services/admin-portal`, :3001) |
 | Tests | ✅ `pytest` — agent loop / chat handler / WS registry with fakes; live Qdrant / Kafka tests (skip when the stack is down); Langfuse against an in-process mock |
 
 ### Suggested order
 
-1. **Remaining tools** — `get_resume` (full record + MinIO link),
-   `score_candidate` (structured fit scoring).
-2. Online ingestion in `ai-embeddings` (upload → Kafka → extract → embed →
-   upsert) and the remaining adapters (`cache/redis`, `object_store/minio`).
+1. **Remaining tools** — `score_candidate` (structured fit scoring).
+2. Remaining ai-agents adapters (`cache/redis`, `object_store/minio`) — online
+   ingestion now lives in `ai-embeddings` (upload → Kafka → extract → embed →
+   upsert).
 
 ---
 
@@ -428,6 +430,6 @@ injected via `environment:`). Secrets still come from `ai-agents/.env`
 
 ```bash
 cd services
-docker compose up -d --build     # front-end :3000, ai-agents :8000,
+docker compose up -d --build     # front-end :3000, admin-portal :3001, ai-agents :8000,
                                  # bot-agent :8001, ai-embeddings :8002
 ```

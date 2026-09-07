@@ -8,6 +8,7 @@ import json
 
 import core.agent as agent_module
 from core.agent import FinalEvent, SuggestionsEvent, TokenEvent, ToolCallEvent, run_chat_agent
+from core.tools import TOOL_SPECS
 from schemas.chat import ChatTurn
 
 
@@ -115,7 +116,7 @@ async def test_tool_then_finish_then_summary(fake_openai, fake_tools):
     assert fake_tools == [("retrieval_cv", {"query": "python developer"})]
 
     decide_1, decide_2, summary, suggest = client.calls
-    assert decide_1["tool_choice"] == "required" and len(decide_1["tools"]) == 3
+    assert decide_1["tool_choice"] == "required" and len(decide_1["tools"]) == len(TOOL_SPECS)
     assert decide_1["messages"][-1] == {"role": "user", "content": "find me a python dev"}
     # the second round sees the tool transcript
     assert decide_2["messages"][-1]["role"] == "tool"

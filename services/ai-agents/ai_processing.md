@@ -41,11 +41,12 @@ to the conversation's WebSocket(s) and publishes the finished turn on
 
 ## 2. Stage 1 — agent-tool (evidence gathering)
 
-The tool model is bound to exactly three functions (`core/tools.py ::
+The tool model is bound to exactly five functions (`core/tools.py ::
 TOOL_SPECS`) with **`tool_choice="required"`** — it must call something every
 round; the escape hatch is an explicit no-op tool:
 
-- `retrieval_cv(query, top_k, section?, category?)` — semantic search over resumes
+- `retrieval_cv(query, top_k, section?, category?, filename?)` — semantic search over resumes
+- `get_resume(resume_id? | filename?)` / `get_job(job_id? | filename?)` — one document in full by id or by the file name it was uploaded with (a file name is an identifier, never a search phrase)
 - `retrieval_jd(query, top_k, company?, employment_type?)` — semantic search over job descriptions
 - `finish_tool_calls()` — REQUIRED terminator, called alone when evidence is
   sufficient, or when no tool fits (small talk goes straight to the summary)

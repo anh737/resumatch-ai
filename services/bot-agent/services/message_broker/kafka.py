@@ -44,6 +44,8 @@ log = get_logger(__name__)
 # ---------------------------------------------------------------------------
 TOPIC_RESUME_UPLOADED = "resume.uploaded"      # a new resume file landed in MinIO
 TOPIC_RESUME_PROCESSED = "resume.processed"    # extraction + embedding finished
+TOPIC_JOB_UPLOADED = "job.uploaded"            # a new job-description file landed in MinIO
+TOPIC_JOB_PROCESSED = "job.processed"          # extraction + embedding finished
 TOPIC_JOB_UPSERTED = "job.upserted"            # a job description was (re)indexed
 TOPIC_CHAT_REQUESTS = "chat.requests"          # bot-agent -> ai-agents: user turn + history
 TOPIC_CHAT_RESPONSES = "chat.responses"        # ai-agents -> bot-agent: answer + tool calls

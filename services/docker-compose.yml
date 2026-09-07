@@ -9,6 +9,10 @@
 # Build
 #   docker compose build            # build all images
 #   docker compose up -d --build    # build + start
+#
+# Ports
+#   front-end :3000   admin-portal :3001 (+ :3002 Langfuse proxy)   ai-agents :8000
+#   bot-agent :8001   ai-embeddings :8002
 # ==============================================================================
 
 services:
@@ -19,6 +23,8 @@ services:
       args:
         # Base URL the browser uses for the chat API; nginx proxies it.
         VITE_API_BASE_URL: /api
+        # "Admin portal" link in the chat sidebar (browser-facing URL of admin-portal).
+        VITE_ADMIN_PORTAL_URL: ${ADMIN_PORTAL_URL:-http://localhost:3001}
     container_name: front-end
     restart: unless-stopped
     ports:
@@ -28,6 +34,34 @@ services:
       # submit + history) and /api/ws/* to ai-agents (WebSocket answer stream).
       API_UPSTREAM: http://bot-agent:8001
       WS_UPSTREAM: http://ai-agents:8000
+
+  # Admin portal: separate React app for operators — upload CVs / JDs, follow
+  # each file through MinIO -> Kafka -> ai-embeddings -> Qdrant, and inspect
+  # Langfuse traces. nginx proxies /api/* to bot-agent (uploads, status, and the
+  # read-only Langfuse proxy), so no secret ever reaches the browser.
+  # A second nginx listener (:3002) reverse-proxies the Langfuse UI without its
+  # anti-framing headers so the portal can embed the dashboard in place.
+  admin-portal:
+    build:
+      context: ./admin-portal
+      args:
+        VITE_API_BASE_URL: /api
+        # "Chat UI" link in the portal sidebar (browser-facing URL of front-end).
+        VITE_CHAT_URL: ${CHAT_URL:-http://localhost:3000}
+        # Browser-facing origin of the embedded Langfuse proxy; empty = <portal host>:3002.
+        VITE_LANGFUSE_EMBED_URL: ${LANGFUSE_EMBED_URL:-}
+    container_name: admin-portal
+    restart: unless-stopped
+    ports:
+      - "3001:80"     # portal
+      - "3002:8080"   # Langfuse dashboard proxy (embedded in the portal's "Langfuse dashboard" page)
+    environment:
+      API_UPSTREAM: http://bot-agent:8001
+      LANGFUSE_UPSTREAM: http://langfuse-web:3000
+      # Langfuse's own public URL (NEXTAUTH_URL in ../monitor); redirects to it are kept inside the proxy.
+      LANGFUSE_PUBLIC_URL: http://localhost:3031
+      # Origins allowed to frame the proxied dashboard (CSP frame-ancestors).
+      LANGFUSE_FRAME_ANCESTORS: "'self' ${ADMIN_PORTAL_URL:-http://localhost:3001} http://127.0.0.1:3001"
 
   # LLM agent: consumes chat.requests from Kafka, streams answers over
   # WebSocket, publishes chat.responses. Needs OPENAI_API_KEY (and optionally
@@ -57,8 +91,11 @@ services:
       timeout: 5s
       start_period: 15s
 
-  # Chat entry point + history: persists turns in PostgreSQL, bridges the
-  # front-end to ai-agents over Kafka (chat.requests / chat.responses).
+  # Chat entry point + history + admin API: persists turns in PostgreSQL,
+  # bridges the front-end to ai-agents over Kafka (chat.requests /
+  # chat.responses), stores admin CV/JD uploads in MinIO and produces
+  # resume.uploaded / job.uploaded. Langfuse keys (admin traces panel) come
+  # from bot-agent/.env:  cp bot-agent/.env.example bot-agent/.env
   bot-agent:
     build: ./bot-agent
     container_name: bot-agent
@@ -72,22 +109,40 @@ services:
       DEBUG: "false"
       POSTGRES_URL: postgresql://${INFRA_USER:-admin}:${INFRA_PASSWORD_URLENC:-changeme}@postgres:5432/postgres
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${INFRA_USER:-admin}
+      MINIO_SECRET_KEY: ${INFRA_PASSWORD:-changeme}
+      LANGFUSE_HOST: http://langfuse-web:3000
+      # Browser-facing URL for trace deep links (the in-network host is not routable there).
+      LANGFUSE_PUBLIC_URL: http://localhost:3031
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
       interval: 30s
       timeout: 5s
       start_period: 15s
 
-  # Online ingestion skeleton (health endpoint only for now); will consume
-  # resume.uploaded from Kafka and upsert embeddings into Qdrant.
+  # Online ingestion: consumes resume.uploaded / job.uploaded from Kafka, reads
+  # the raw file from MinIO, structures + embeds it (same schema as the
+  # pre-processing notebooks) and upserts into Qdrant. Needs OPENAI_API_KEY
+  # (and optionally Langfuse keys) from ai-embeddings/.env:
+  #   cp ai-embeddings/.env.example ai-embeddings/.env
   ai-embeddings:
     build: ./ai-embeddings
     container_name: ai-embeddings
     restart: unless-stopped
     ports:
       - "8002:8002"
+    env_file:
+      - path: ./ai-embeddings/.env
+        required: false
     environment:
       DEBUG: "false"
+      QDRANT_URL: http://qdrant:6333
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${INFRA_USER:-admin}
+      MINIO_SECRET_KEY: ${INFRA_PASSWORD:-changeme}
+      LANGFUSE_HOST: http://langfuse-web:3000
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
       interval: 30s

@@ -1,6 +1,6 @@
-"""PostgreSQL adapter — chat-history persistence on top of ``asyncpg``.
+"""PostgreSQL adapter — chat-history + ingestion persistence on top of ``asyncpg``.
 
-Two tables, created on startup by :func:`init_schema`:
+Three tables, created on startup by :func:`init_schema`:
 
 * ``conversations`` — one row per conversation (id, title, timestamps). Ids are
   TEXT because the front-end generates them client-side.
@@ -10,6 +10,12 @@ Two tables, created on startup by :func:`init_schema`:
   JSONB) plus an ``error`` when the agent failed; their id is derived from the
   user message id (``<id>:reply``) so the at-least-once Kafka consumer can
   insert idempotently.
+
+* ``ingestion_uploads`` — one row per CV/JD file an admin uploaded. bot-agent
+  inserts it as ``queued`` when the file lands in MinIO and the Kafka upload
+  event is produced; the ``resume.processed`` / ``job.processed`` consumer
+  moves it through ``processing`` to ``done``/``failed`` (terminal states never
+  regress on redelivered events).
 
 :func:`recent_turns` returns the last ``turns`` user+assistant pairs (i.e. up
 to ``2 * turns`` non-empty messages), oldest first — the history bot-agent
@@ -56,6 +62,28 @@ ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS suggestions JSONB;
 
 CREATE INDEX IF NOT EXISTS chat_messages_conversation_seq
     ON chat_messages (conversation_id, seq);
+
+CREATE TABLE IF NOT EXISTS ingestion_uploads (
+    id           TEXT PRIMARY KEY,
+    kind         TEXT NOT NULL CHECK (kind IN ('cv', 'jd')),
+    document_id  TEXT NOT NULL,
+    filename     TEXT NOT NULL,
+    bucket       TEXT NOT NULL,
+    object_key   TEXT NOT NULL,
+    status       TEXT NOT NULL DEFAULT 'queued'
+                 CHECK (status IN ('queued', 'processing', 'done', 'failed')),
+    points       INTEGER,
+    error        TEXT,
+    trace_id     TEXT,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ingestion_uploads_created
+    ON ingestion_uploads (created_at DESC);
+
+-- Upgrade path: CV category requested at upload time (kept so a re-process reuses it).
+ALTER TABLE ingestion_uploads ADD COLUMN IF NOT EXISTS category TEXT;
 """
 
 
@@ -81,6 +109,25 @@ class ConversationRecord:
     title: str | None
     created_at: datetime
     updated_at: datetime
+
+
+@dataclass(slots=True)
+class UploadRecord:
+    """One admin-uploaded CV/JD file and its ingestion status."""
+
+    id: str
+    kind: str
+    document_id: str
+    filename: str
+    bucket: str
+    object_key: str
+    status: str
+    points: int | None
+    error: str | None
+    trace_id: str | None
+    created_at: datetime
+    updated_at: datetime
+    category: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -262,3 +309,156 @@ async def delete_conversation(conversation_id: str) -> bool:
     pool = await get_pool()
     result = await pool.execute("DELETE FROM conversations WHERE id = $1", conversation_id)
     return result.endswith("1")
+
+
+# ---------------------------------------------------------------------------
+# Ingestion uploads
+# ---------------------------------------------------------------------------
+def _upload(row: asyncpg.Record) -> UploadRecord:
+    return UploadRecord(
+        id=row["id"],
+        kind=row["kind"],
+        document_id=row["document_id"],
+        filename=row["filename"],
+        bucket=row["bucket"],
+        object_key=row["object_key"],
+        status=row["status"],
+        points=row["points"],
+        error=row["error"],
+        trace_id=row["trace_id"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        category=row["category"],
+    )
+
+
+async def insert_upload(
+    upload_id: str,
+    *,
+    kind: str,
+    document_id: str,
+    filename: str,
+    bucket: str,
+    object_key: str,
+    category: str | None = None,
+) -> UploadRecord:
+    """Record a fresh upload (status ``queued``) and return the stored row."""
+    pool = await get_pool()
+    row = await pool.fetchrow(
+        """
+        INSERT INTO ingestion_uploads (id, kind, document_id, filename, bucket, object_key, category)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING *
+        """,
+        upload_id,
+        kind,
+        document_id,
+        filename,
+        bucket,
+        object_key,
+        category,
+    )
+    return _upload(row)
+
+
+async def reset_upload(upload_id: str) -> UploadRecord | None:
+    """Put a row back to ``queued`` before its upload event is re-produced (re-process).
+
+    Clears the previous outcome (points, error, trace) so the admin table
+    shows the new run; ``None`` when the id is unknown.
+    """
+    pool = await get_pool()
+    row = await pool.fetchrow(
+        """
+        UPDATE ingestion_uploads
+        SET status = 'queued', points = NULL, error = NULL, trace_id = NULL, updated_at = now()
+        WHERE id = $1
+        RETURNING *
+        """,
+        upload_id,
+    )
+    return _upload(row) if row else None
+
+
+async def update_upload_status(
+    upload_id: str,
+    *,
+    status: str,
+    points: int | None = None,
+    error: str | None = None,
+    trace_id: str | None = None,
+) -> bool:
+    """Apply a ``*.processed`` event; terminal states never regress.
+
+    A redelivered ``processing`` event after ``done``/``failed`` is a no-op, so
+    the at-least-once Kafka consumer stays idempotent. Returns False when no
+    row changed (unknown id or ignored regression).
+    """
+    pool = await get_pool()
+    result = await pool.execute(
+        """
+        UPDATE ingestion_uploads
+        SET status = $2,
+            points = COALESCE($3, points),
+            error = $4,
+            trace_id = COALESCE($5, trace_id),
+            updated_at = now()
+        WHERE id = $1
+          AND NOT (status IN ('done', 'failed') AND $2 = 'processing')
+        """,
+        upload_id,
+        status,
+        points,
+        error,
+        trace_id,
+    )
+    return result.endswith("1")
+
+
+async def list_uploads(limit: int = 50, *, kind: str | None = None, status: str | None = None) -> list[UploadRecord]:
+    """Uploads, newest first (the admin portal's tables); optional ``kind`` / ``status`` filters."""
+    pool = await get_pool()
+    rows = await pool.fetch(
+        """
+        SELECT * FROM ingestion_uploads
+        WHERE ($2::text IS NULL OR kind = $2)
+          AND ($3::text IS NULL OR status = $3)
+        ORDER BY created_at DESC
+        LIMIT $1
+        """,
+        limit,
+        kind,
+        status,
+    )
+    return [_upload(r) for r in rows]
+
+
+async def get_upload(upload_id: str) -> UploadRecord | None:
+    """One upload row, or ``None`` when the id is unknown."""
+    pool = await get_pool()
+    row = await pool.fetchrow("SELECT * FROM ingestion_uploads WHERE id = $1", upload_id)
+    return _upload(row) if row else None
+
+
+@dataclass(slots=True)
+class UploadStatsRow:
+    """Aggregate of ``ingestion_uploads`` for one (kind, status) pair."""
+
+    kind: str
+    status: str
+    count: int
+    points: int
+
+
+async def upload_stats() -> tuple[list[UploadStatsRow], datetime | None]:
+    """Counts + upserted points per (kind, status), and the newest upload time."""
+    pool = await get_pool()
+    rows = await pool.fetch(
+        """
+        SELECT kind, status, COUNT(*)::int AS count, COALESCE(SUM(points), 0)::int AS points
+        FROM ingestion_uploads
+        GROUP BY kind, status
+        """
+    )
+    last = await pool.fetchval("SELECT MAX(created_at) FROM ingestion_uploads")
+    return [UploadStatsRow(kind=r["kind"], status=r["status"], count=r["count"], points=r["points"]) for r in rows], last

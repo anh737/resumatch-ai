@@ -2,9 +2,11 @@
 
 Two-stage design (project architecture §5), on the plain OpenAI SDK:
 
-1. **Tool loop** — ``OPENAI_TOOL_MODEL`` is bound to the retrieval tools with
-   ``tool_choice="required"`` and asked which to call next. It keeps calling
-   ``retrieval_cv`` / ``retrieval_jd`` until it signals ``finish_tool_calls``,
+1. **Tool loop** — ``OPENAI_TOOL_MODEL`` is bound to the knowledge-base tools
+   with ``tool_choice="required"`` and asked which to call next. It keeps
+   calling ``retrieval_cv`` / ``retrieval_jd`` (semantic search) and
+   ``get_resume`` / ``get_job`` (lookup by id or upload file name) until it
+   signals ``finish_tool_calls``,
    repeats an identical call (loop guard), or ``AGENT_MAX_TOOL_ROUNDS`` is hit.
 2. **Summary** — ``OPENAI_MODEL`` writes the final answer from the system
    prompt + history + tool transcript, streamed token by token.
@@ -92,6 +94,17 @@ def _result_summary(result: Any) -> Any:
             "result_count": len(hits),
             "ids": [h.get("resume_id", h.get("job_id")) for h in hits if isinstance(h, dict)][:10],
         }
+    if isinstance(result, dict) and "found" in result:  # get_resume / get_job: identification only
+        source = result.get("source") or {}
+        summary = {
+            "found": result["found"],
+            "matched_by": result.get("matched_by"),
+            "resume_id": result.get("resume_id"),
+            "job_id": result.get("job_id"),
+            "filename": source.get("filename") or result.get("filename"),
+            "uploaded_files": [d.get("filename") for d in result.get("uploaded_files", [])][:10] or None,
+        }
+        return {k: v for k, v in summary.items() if v is not None}
     return result
 
 

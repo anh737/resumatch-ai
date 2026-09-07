@@ -31,3 +31,6 @@ storage/data/
 storage/logs/
 monitor/data/
 monitor/logs/
+
+# iCloud conflict copies quarantined out of storage/data (safe to delete once the stack runs cleanly)
+storage/_icloud-duplicates-*/

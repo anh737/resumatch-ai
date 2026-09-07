@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react';
-import { PanelLeftClose, Search, SquarePen, X } from 'lucide-react';
+import { ExternalLink, PanelLeftClose, Search, ShieldCheck, SquarePen, X } from 'lucide-react';
 import ConversationItem from './ConversationItem';
 import type { Conversation } from '../types';
 import { GROUP_ORDER, groupForDate, type DateGroup } from '../utils/dates';
+
+// Separate admin app (services/admin-portal); the link is hidden when unset.
+const ADMIN_PORTAL_URL = (import.meta.env.VITE_ADMIN_PORTAL_URL ?? '').trim();
 
 interface Props {
   conversations: Conversation[];
@@ -95,6 +98,13 @@ export default function Sidebar({
               <Search size={18} />
               <span>Search chats</span>
             </button>
+            {ADMIN_PORTAL_URL && (
+              <a className="nav-item nav-item--link" href={ADMIN_PORTAL_URL} target="_blank" rel="noreferrer">
+                <ShieldCheck size={18} />
+                <span>Admin portal</span>
+                <ExternalLink size={14} className="nav-item__ext" />
+              </a>
+            )}
             {searching && (
               <div className="sidebar__search">
                 <Search size={16} />
